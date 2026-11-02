@@ -28,5 +28,548 @@
       <div class="flex items-center space-x-2">
         <button id="import-btn" class="bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-200 border border-slate-600 transition">
           <i class="fa-solid fa-file-import mr-1"></i> Импорт
-        </
-          
+        </button>
+        <button id="export-btn" class="bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-200 border border-slate-600 transition">
+          <i class="fa-solid fa-download mr-1"></i> JSON
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Navigation Tabs -->
+  <nav class="bg-slate-800/80 border-b border-slate-700 sticky top-[65px] z-40 backdrop-blur">
+    <div class="max-w-xl mx-auto flex justify-around p-1 text-sm font-medium">
+      <button onclick="switchTab('drill')" id="tab-drill" class="flex-1 py-2 text-center border-b-2 border-sky-400 text-sky-400 transition">
+        <i class="fa-solid fa-graduation-cap block text-base mb-0.5"></i> Фразы
+      </button>
+      <button onclick="switchTab('verbs')" id="tab-verbs" class="flex-1 py-2 text-center border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition">
+        <i class="fa-solid fa-bolt block text-base mb-0.5 text-amber-400"></i> Глаголы ES
+      </button>
+      <button onclick="switchTab('add')" id="tab-add" class="flex-1 py-2 text-center border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition">
+        <i class="fa-solid fa-plus-circle block text-base mb-0.5"></i> Добавить
+      </button>
+      <button onclick="switchTab('list')" id="tab-list" class="flex-1 py-2 text-center border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition">
+        <i class="fa-solid fa-book block text-base mb-0.5"></i> Словарь
+      </button>
+    </div>
+  </nav>
+
+  <!-- Main Container -->
+  <main class="flex-1 max-w-xl w-full mx-auto p-4 flex flex-col justify-start">
+
+    <!-- TAB 1: PHRASE DRILL -->
+    <section id="view-drill" class="flex-1 flex flex-col justify-between">
+      <div class="flex justify-between items-center mb-3">
+        <div class="flex items-center space-x-1.5">
+          <span class="text-xs text-slate-400 font-medium">Фильтр:</span>
+          <select id="filter-drill-lang" onchange="renderNewDrillCard()" class="bg-slate-800 text-xs border border-slate-700 rounded-lg px-2 py-1 text-slate-200 focus:outline-none">
+            <option value="ALL">Все языки</option>
+            <option value="ES">🇪🇸 Испанский</option>
+            <option value="DE">🇩🇪 Немецкий</option>
+            <option value="EN">🇬🇧 Английский</option>
+          </select>
+        </div>
+        <span id="drill-counter" class="text-xs font-semibold px-2 py-1 rounded bg-slate-800 text-slate-300 border border-slate-700">0 карточек</span>
+      </div>
+
+      <!-- Flashcard Area -->
+      <div id="drill-card" class="bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-xl flex-1 flex flex-col justify-between min-h-[360px]">
+        <div>
+          <!-- Target Language Badge -->
+          <div class="flex justify-between items-center mb-4">
+            <div id="drill-lang-badge" class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide bg-sky-500/20 text-sky-400 border border-sky-500/30">
+              🇪🇸 Переведите на ИСПАНСКИЙ
+            </div>
+            <button onclick="speakTargetPhrase()" class="text-slate-400 hover:text-sky-400 p-2 text-lg">
+              <i class="fa-solid fa-volume-high"></i>
+            </button>
+          </div>
+
+          <!-- Prompt Question (Russian context) -->
+          <p class="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-1">Русское значение / Ситуация:</p>
+          <h2 id="drill-prompt" class="text-2xl font-bold text-white mb-4 leading-snug">Загрузка...</h2>
+
+          <!-- User Spoken Result Display -->
+          <div id="drill-speech-container" class="mt-4 p-3 bg-slate-900/60 rounded-xl border border-slate-700/60 min-h-[56px] flex items-center">
+            <i class="fa-solid fa-comment-dots text-slate-500 mr-2.5"></i>
+            <span id="drill-spoken-text" class="text-sm text-slate-300 italic">Нажмите на микрофон и произнесите ответ...</span>
+          </div>
+
+          <!-- Target Reveal (Hidden initially) -->
+          <div id="drill-reveal-section" class="mt-4 p-4 bg-sky-950/40 border border-sky-800/40 rounded-xl hidden">
+            <p class="text-xs uppercase tracking-wider text-sky-400 font-bold mb-1">Эталонный перевод:</p>
+            <p id="drill-target-phrase" class="text-xl font-bold text-white tracking-wide"></p>
+            <p id="drill-target-example" class="text-xs text-slate-300 mt-2 italic"></p>
+          </div>
+        </div>
+
+        <!-- Card Footer Actions -->
+        <div class="mt-6 flex flex-col gap-3">
+          <div class="flex items-center justify-center gap-4">
+            <button id="mic-drill-btn" onclick="toggleVoiceRecognition()" class="w-16 h-16 rounded-full bg-sky-500 text-white flex items-center justify-center shadow-lg shadow-sky-500/30 hover:bg-sky-400 transition transform active:scale-95">
+              <i id="mic-drill-icon" class="fa-solid fa-microphone text-2xl"></i>
+            </button>
+          </div>
+          <div class="flex gap-2">
+            <button onclick="revealPhrase(false)" id="btn-show" class="flex-1 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl text-xs font-semibold text-slate-200 transition">
+              <i class="fa-solid fa-eye mr-1"></i> Показать
+            </button>
+            <button onclick="nextCard(true)" id="btn-next" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-xs font-semibold text-white transition">
+              Дальше <i class="fa-solid fa-arrow-right ml-1"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: SPANISH VERB LAB -->
+    <section id="view-verbs" class="flex-1 flex flex-col justify-between hidden">
+      <div class="flex justify-between items-center mb-3">
+        <select id="verb-tense-filter" onchange="renderNewVerbTask()" class="bg-slate-800 text-xs border border-slate-700 rounded-lg px-2.5 py-1 text-amber-300 focus:outline-none font-medium">
+          <option value="ALL">Все времена (Mix)</option>
+          <option value="SUBJ">Presente de Subjuntivo</option>
+          <option value="INDEF">Pretérito Indefinido</option>
+          <option value="IMPERF">Pretérito Imperfecto</option>
+          <option value="PERF">Pretérito Perfecto</option>
+        </select>
+        <span class="text-xs text-amber-400/80 font-mono">🇪🇸 Verb Drill</span>
+      </div>
+
+      <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-xl flex-1 flex flex-col justify-between min-h-[380px]">
+        <div>
+          <!-- Grammatical Topic Header -->
+          <div class="flex justify-between items-center mb-3">
+            <span id="verb-badge" class="px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30">
+              Subjuntivo
+            </span>
+            <span id="verb-infinitive" class="text-xs font-semibold text-slate-300 bg-slate-700/60 px-2 py-0.5 rounded">
+              Infinitivo: poner
+            </span>
+          </div>
+
+          <!-- Sentence with blank -->
+          <p class="text-xs text-slate-400 uppercase font-semibold mb-1">Поставьте глагол в нужную форму:</p>
+          <div id="verb-sentence" class="text-xl font-medium text-white mb-3 leading-relaxed">
+            Es necesario que tú <span class="text-amber-400 underline decoration-2 font-bold">[____]</span> aquí.
+          </div>
+          <p id="verb-translation" class="text-xs text-slate-400 italic mb-4">"Нужно, чтобы ты положил это сюда."</p>
+
+          <!-- Input Field with special Spanish char helpers -->
+          <div class="space-y-2">
+            <div class="flex gap-2">
+              <input type="text" id="verb-input" placeholder="Введите форму глагола..." class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-white placeholder-slate-500 text-base focus:border-amber-400 focus:outline-none">
+              <button onclick="checkVerbAnswer()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 rounded-xl transition text-sm">
+                Проверить
+              </button>
+            </div>
+            <!-- Accent character buttons -->
+            <div class="flex gap-1.5 justify-center">
+              <button onclick="insertChar('á')" class="bg-slate-700 hover:bg-slate-600 text-xs px-2 py-1 rounded text-slate-200">á</button>
+              <button onclick="insertChar('é')" class="bg-slate-700 hover:bg-slate-600 text-xs px-2 py-1 rounded text-slate-200">é</button>
+              <button onclick="insertChar('í')" class="bg-slate-700 hover:bg-slate-600 text-xs px-2 py-1 rounded text-slate-200">í</button>
+              <button onclick="insertChar('ó')" class="bg-slate-700 hover:bg-slate-600 text-xs px-2 py-1 rounded text-slate-200">ó</button>
+              <button onclick="insertChar('ú')" class="bg-slate-700 hover:bg-slate-600 text-xs px-2 py-1 rounded text-slate-200">ú</button>
+              <button onclick="insertChar('ñ')" class="bg-slate-700 hover:bg-slate-600 text-xs px-2 py-1 rounded text-slate-200">ñ</button>
+            </div>
+          </div>
+
+          <!-- Feedback Box -->
+          <div id="verb-feedback" class="mt-4 p-3.5 rounded-xl border hidden text-xs leading-relaxed"></div>
+        </div>
+
+        <div class="mt-5 flex gap-2">
+          <button onclick="revealVerbRule()" class="flex-1 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-semibold rounded-xl transition">
+            <i class="fa-solid fa-lightbulb mr-1 text-amber-400"></i> Правило
+          </button>
+          <button onclick="renderNewVerbTask()" class="flex-1 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-semibold rounded-xl transition">
+            Следующий глагол <i class="fa-solid fa-arrow-right ml-1"></i>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: ADD PHRASE -->
+    <section id="view-add" class="flex-1 hidden">
+      <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-xl">
+        <h3 class="font-bold text-lg text-white mb-4 flex items-center">
+          <i class="fa-solid fa-square-plus text-sky-400 mr-2"></i> Новое выражение
+        </h3>
+        
+        <form id="add-phrase-form" onsubmit="saveNewPhrase(event)" class="space-y-4">
+          <div>
+            <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Язык</label>
+            <div class="grid grid-cols-3 gap-2">
+              <label class="cursor-pointer">
+                <input type="radio" name="lang" value="ES" checked class="peer sr-only">
+                <div class="p-2.5 text-center bg-slate-900 border border-slate-700 peer-checked:border-sky-400 peer-checked:bg-sky-500/10 rounded-xl text-xs font-bold text-slate-300 peer-checked:text-sky-300">
+                  🇪🇸 Испанский
+                </div>
+              </label>
+              <label class="cursor-pointer">
+                <input type="radio" name="lang" value="DE" class="peer sr-only">
+                <div class="p-2.5 text-center bg-slate-900 border border-slate-700 peer-checked:border-sky-400 peer-checked:bg-sky-500/10 rounded-xl text-xs font-bold text-slate-300 peer-checked:text-sky-300">
+                  🇩🇪 Немецкий
+                </div>
+              </label>
+              <label class="cursor-pointer">
+                <input type="radio" name="lang" value="EN" class="peer sr-only">
+                <div class="p-2.5 text-center bg-slate-900 border border-slate-700 peer-checked:border-sky-400 peer-checked:bg-sky-500/10 rounded-xl text-xs font-bold text-slate-300 peer-checked:text-sky-300">
+                  🇬🇧 Английский
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Иностранное выражение</label>
+            <div class="relative">
+              <input type="text" id="input-phrase" required placeholder="Например: dar por sentado" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white pr-10 focus:border-sky-400 focus:outline-none text-sm">
+              <button type="button" onclick="dictateField('input-phrase')" class="absolute right-2.5 top-2.5 text-slate-400 hover:text-sky-400 p-1">
+                <i class="fa-solid fa-microphone"></i>
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Значение на русском</label>
+            <input type="text" id="input-translation" required placeholder="Например: принимать как должное" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:border-sky-400 focus:outline-none text-sm">
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Пример предложения (контекст)</label>
+            <input type="text" id="input-example" placeholder="No des nada por sentado en este proyecto." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:border-sky-400 focus:outline-none text-sm">
+          </div>
+
+          <button type="submit" class="w-full py-3 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold rounded-xl text-sm transition">
+            Сохранить в базу
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <!-- TAB 4: VOCABULARY LIST -->
+    <section id="view-list" class="flex-1 hidden flex flex-col">
+      <div class="mb-3 flex gap-2">
+        <input type="text" id="search-box" oninput="renderVocabList()" placeholder="Поиск по фразам..." class="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none">
+        <select id="filter-list-lang" onchange="renderVocabList()" class="bg-slate-800 text-xs border border-slate-700 rounded-xl px-2.5 py-2 text-slate-300">
+          <option value="ALL">Все</option>
+          <option value="ES">🇪🇸 ES</option>
+          <option value="DE">🇩🇪 DE</option>
+          <option value="EN">🇬🇧 EN</option>
+        </select>
+      </div>
+      <div id="vocab-container" class="flex-1 overflow-y-auto space-y-2 max-h-[60vh] pr-1"></div>
+    </section>
+  </main>
+
+  <!-- Modal: Import from Android Notizen -->
+  <div id="import-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-lg w-full p-5 shadow-2xl">
+      <div class="flex justify-between items-center mb-3">
+        <h3 class="font-bold text-white text-base">Импорт заметок из Notizen</h3>
+        <button onclick="closeImportModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+      <p class="text-xs text-slate-400 mb-3">
+        Вставьте строки из вашей заметки. Форматы: <br>
+        <code class="text-sky-300">dar por sentado — принимать как должное (ES)</code> или <code class="text-sky-300">auf Anhieb: сразу, с первой попытки</code>
+      </p>
+      <textarea id="import-text" rows="8" placeholder="Вставьте сюда текст заметок..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-white focus:outline-none font-mono"></textarea>
+      <div class="mt-4 flex justify-end gap-2">
+        <button onclick="closeImportModal()" class="px-4 py-2 bg-slate-700 rounded-xl text-xs text-slate-300">Отмена</button>
+        <button onclick="processBatchImport()" class="px-4 py-2 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold rounded-xl text-xs">Импортировать</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Initial Seed Database
+    const defaultData = [
+      { id: '1', lang: 'ES', phrase: 'dar por sentado', trans: 'принимать как должное', example: 'No des por sentado que todo irá bien.', count: 0 },
+      { id: '2', lang: 'ES', phrase: 'meter la pata', trans: 'оплошать, сесть в лужу', example: 'He metido la pata con mi jefe hoy.', count: 0 },
+      { id: '3', lang: 'DE', phrase: 'auf Anhieb', trans: 'сразу, с первой попытки', example: 'Er hat die Prüfung auf Anhieb bestanden.', count: 0 },
+      { id: '4', lang: 'DE', phrase: 'im Klaren sein', trans: 'отдавать себе отчет, понимать', example: 'Ich bin mir darüber im Klaren.', count: 0 },
+      { id: '5', lang: 'EN', phrase: 'cut corners', trans: 'срезать углы, делать небрежно', example: 'Do not cut corners on security compliance.', count: 0 }
+    ];
+
+    // Spanish Verbs Data Bank
+    const spanishVerbDrills = [
+      { tense: 'SUBJ', infinitive: 'poner', trigger: 'Es importante que...', sentence: 'Es importante que tú ____ las llaves en la mesa.', target: 'pongas', trans: 'Важно, чтобы ты положил ключи на стол.', rule: 'Presente de Subjuntivo: глагол poner имеет основу pong- -> tú pongas.' },
+      { tense: 'SUBJ', infinitive: 'hacer', trigger: 'Quiero que...', sentence: 'Quiero que ellos ____ los deberes ahora.', target: 'hagan', trans: 'Я хочу, чтобы они сделали домашнее задание сейчас.', rule: 'Subjuntivo: hacer -> yo hago -> ellos hagan.' },
+      { tense: 'SUBJ', infinitive: 'venir', trigger: 'Dudo que...', sentence: 'Dudo que él ____ a la reunión hoy.', target: 'venga', trans: 'Сомневаюсь, что он придет на встречу сегодня.', rule: 'Глагол venir в субхунтиве: venga, vengas, venga.' },
+      { tense: 'INDEF', infinitive: 'decir', trigger: 'Ayer...', sentence: 'Ayer yo le ____ la verdad a María.', target: 'dije', trans: 'Вчера я сказал Марии правду.', rule: 'Pretérito Indefinido: неправильная основа dij- без ударения на конце (yo dije).' },
+      { tense: 'INDEF', infinitive: 'ir', trigger: 'El año pasado...', sentence: 'El año pasado nosotros ____ a Valencia.', target: 'fuimos', trans: 'В прошлом году мы ездили в Валенсию.', rule: 'Indefinido от ir/ser: fuimos (nosotros).' },
+      { tense: 'IMPERF', infinitive: 'ser', trigger: 'Cuando era niño...', sentence: 'Cuando yo era pequeño, siempre ____ muy curioso.', target: 'era', trans: 'Когда я был маленьким, я всегда был любопытным.', rule: 'Pretérito Imperfecto от ser: era, eras, era.' },
+      { tense: 'PERF', infinitive: 'abrir', trigger: 'Hoy...', sentence: 'Hoy ellos han ____ una nueva cuenta bancaria.', target: 'abierto', trans: 'Сегодня они открыли новый банковский счет.', rule: 'Причастие от abrir — abierto (неправильное).' }
+    ];
+
+    let phrases = JSON.parse(localStorage.getItem('polyglot_phrases')) || defaultData;
+    let currentDrill = null;
+    let currentVerb = null;
+    let recognition = null;
+    let isRecording = false;
+
+    // Speech Recognition Setup
+    window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (window.SpeechRecognition) {
+      recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.onresult = (event) => {
+        const spoken = event.results[0][0].transcript;
+        handleSpeechResult(spoken);
+      };
+      recognition.onerror = () => stopRecording();
+      recognition.onend = () => stopRecording();
+    }
+
+    function init() {
+      renderNewDrillCard();
+      renderNewVerbTask();
+      renderVocabList();
+    }
+
+    function saveToStorage() {
+      localStorage.setItem('polyglot_phrases', JSON.stringify(phrases));
+    }
+
+    // Tab Navigation
+    function switchTab(tab) {
+      ['drill', 'verbs', 'add', 'list'].forEach(t => {
+        document.getElementById(`view-${t}`).classList.add('hidden');
+        document.getElementById(`tab-${t}`).classList.remove('text-sky-400', 'border-sky-400');
+        document.getElementById(`tab-${t}`).classList.add('text-slate-400', 'border-transparent');
+      });
+      document.getElementById(`view-${tab}`).classList.remove('hidden');
+      document.getElementById(`tab-${tab}`).classList.add('text-sky-400', 'border-sky-400');
+      document.getElementById(`tab-${tab}`).classList.remove('text-slate-400', 'border-transparent');
+      if (tab === 'list') renderVocabList();
+    }
+
+    // Drill Logic
+    function getFilteredPhrases() {
+      const f = document.getElementById('filter-drill-lang').value;
+      return f === 'ALL' ? phrases : phrases.filter(p => p.lang === f);
+    }
+
+    function renderNewDrillCard() {
+      const pool = getFilteredPhrases();
+      document.getElementById('drill-counter').textContent = `${pool.length} карточек`;
+      if (pool.length === 0) {
+        document.getElementById('drill-prompt').textContent = 'Нет выражений в этой категории';
+        document.getElementById('drill-target-phrase').textContent = '';
+        return;
+      }
+      currentDrill = pool[Math.floor(Math.random() * pool.length)];
+      
+      const badge = document.getElementById('drill-lang-badge');
+      if (currentDrill.lang === 'ES') {
+        badge.innerHTML = '🇪🇸 Переведите на ИСПАНСКИЙ';
+        badge.className = 'px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide bg-amber-500/20 text-amber-400 border border-amber-500/30';
+      } else if (currentDrill.lang === 'DE') {
+        badge.innerHTML = '🇩🇪 Переведите на НЕМЕЦКИЙ';
+        badge.className = 'px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide bg-rose-500/20 text-rose-400 border border-rose-500/30';
+      } else {
+        badge.innerHTML = '🇬🇧 Переведите на АНГЛИЙСКИЙ';
+        badge.className = 'px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide bg-sky-500/20 text-sky-400 border border-sky-500/30';
+      }
+
+      document.getElementById('drill-prompt').textContent = currentDrill.trans;
+      document.getElementById('drill-target-phrase').textContent = currentDrill.phrase;
+      document.getElementById('drill-target-example').textContent = currentDrill.example ? `"${currentDrill.example}"` : '';
+      
+      document.getElementById('drill-reveal-section').classList.add('hidden');
+      document.getElementById('drill-spoken-text').textContent = 'Нажмите на микрофон и произнесите ответ...';
+      document.getElementById('drill-spoken-text').className = 'text-sm text-slate-300 italic';
+    }
+
+    function revealPhrase(autoSpeak = true) {
+      document.getElementById('drill-reveal-section').classList.remove('hidden');
+      if (autoSpeak) speakTargetPhrase();
+    }
+
+    function nextCard() {
+      renderNewDrillCard();
+    }
+
+    function toggleVoiceRecognition() {
+      if (!recognition) {
+        alert('Распознавание речи не поддерживается в этом браузере. Рекомендуется использовать Chrome на Android.');
+        return;
+      }
+      if (isRecording) {
+        recognition.stop();
+      } else {
+        const langMap = { 'ES': 'es-ES', 'DE': 'de-DE', 'EN': 'en-US' };
+        recognition.lang = langMap[currentDrill ? currentDrill.lang : 'ES'];
+        recognition.start();
+        isRecording = true;
+        document.getElementById('mic-drill-btn').classList.add('recording-pulse', 'bg-rose-500');
+        document.getElementById('drill-spoken-text').textContent = 'Слушаю вас... Говорите!';
+      }
+    }
+
+    function stopRecording() {
+      isRecording = false;
+      document.getElementById('mic-drill-btn').classList.remove('recording-pulse', 'bg-rose-500');
+    }
+
+    function handleSpeechResult(text) {
+      document.getElementById('drill-spoken-text').textContent = `Вы сказали: "${text}"`;
+      document.getElementById('drill-spoken-text').className = 'text-sm font-semibold text-white';
+      revealPhrase(true);
+    }
+
+    function speakTargetPhrase() {
+      if (!currentDrill || !window.speechSynthesis) return;
+      const langMap = { 'ES': 'es-ES', 'DE': 'de-DE', 'EN': 'en-US' };
+      const utterance = new SpeechSynthesisUtterance(currentDrill.phrase);
+      utterance.lang = langMap[currentDrill.lang];
+      window.speechSynthesis.speak(utterance);
+    }
+
+    // Verb Grammar Lab Logic
+    function renderNewVerbTask() {
+      const filter = document.getElementById('verb-tense-filter').value;
+      const pool = filter === 'ALL' ? spanishVerbDrills : spanishVerbDrills.filter(v => v.tense === filter);
+      currentVerb = pool[Math.floor(Math.random() * pool.length)];
+
+      document.getElementById('verb-badge').textContent = currentVerb.tense;
+      document.getElementById('verb-infinitive').textContent = `Infinitivo: ${currentVerb.infinitive}`;
+      document.getElementById('verb-sentence').innerHTML = currentVerb.sentence.replace('____', '<span class="text-amber-400 underline decoration-2 font-bold">[____]</span>');
+      document.getElementById('verb-translation').textContent = `"${currentVerb.trans}"`;
+      document.getElementById('verb-input').value = '';
+      document.getElementById('verb-feedback').classList.add('hidden');
+    }
+
+    function checkVerbAnswer() {
+      const val = document.getElementById('verb-input').value.trim().toLowerCase();
+      const fb = document.getElementById('verb-feedback');
+      fb.classList.remove('hidden');
+
+      if (val === currentVerb.target.toLowerCase()) {
+        fb.className = 'mt-4 p-3.5 rounded-xl border border-emerald-500/40 bg-emerald-950/40 text-emerald-300 text-xs';
+        fb.innerHTML = `<strong>¡Excelente!</strong> Форма правильная: <em>${currentVerb.target}</em>. <br>${currentVerb.rule}`;
+        // Speak sentence
+        if (window.speechSynthesis) {
+          const u = new SpeechSynthesisUtterance(currentVerb.sentence.replace('____', currentVerb.target));
+          u.lang = 'es-ES';
+          window.speechSynthesis.speak(u);
+        }
+      } else {
+        fb.className = 'mt-4 p-3.5 rounded-xl border border-rose-500/40 bg-rose-950/40 text-rose-300 text-xs';
+        fb.innerHTML = `<strong>Не совсем.</strong> Правильный ответ: <strong>${currentVerb.target}</strong>.<br>${currentVerb.rule}`;
+      }
+    }
+
+    function insertChar(c) {
+      const inp = document.getElementById('verb-input');
+      inp.value += c;
+      inp.focus();
+    }
+
+    function revealVerbRule() {
+      const fb = document.getElementById('verb-feedback');
+      fb.classList.remove('hidden');
+      fb.className = 'mt-4 p-3.5 rounded-xl border border-slate-700 bg-slate-900 text-slate-300 text-xs';
+      fb.innerHTML = `<strong>Ответ:</strong> ${currentVerb.target} <br><strong>Правило:</strong> ${currentVerb.rule}`;
+    }
+
+    // Add Phrase
+    function saveNewPhrase(e) {
+      e.preventDefault();
+      const lang = document.querySelector('input[name="lang"]:checked').value;
+      const phrase = document.getElementById('input-phrase').value.trim();
+      const trans = document.getElementById('input-translation').value.trim();
+      const example = document.getElementById('input-example').value.trim();
+
+      phrases.unshift({ id: Date.now().toString(), lang, phrase, trans, example, count: 0 });
+      saveToStorage();
+      e.target.reset();
+      switchTab('drill');
+      renderNewDrillCard();
+    }
+
+    // Vocabulary Listing
+    function renderVocabList() {
+      const container = document.getElementById('vocab-container');
+      const q = document.getElementById('search-box').value.toLowerCase();
+      const f = document.getElementById('filter-list-lang').value;
+
+      const list = phrases.filter(p => {
+        const matchesQuery = p.phrase.toLowerCase().includes(q) || p.trans.toLowerCase().includes(q);
+        const matchesLang = f === 'ALL' || p.lang === f;
+        return matchesQuery && matchesLang;
+      });
+
+      if (list.length === 0) {
+        container.innerHTML = '<div class="text-center text-slate-500 py-8 text-xs">Ничего не найдено</div>';
+        return;
+      }
+
+      container.innerHTML = list.map(item => `
+        <div class="bg-slate-800/80 border border-slate-700/80 p-3 rounded-xl flex items-center justify-between">
+          <div class="flex-1 pr-2">
+            <div class="flex items-center space-x-2">
+              <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-700 text-slate-300">${item.lang}</span>
+              <span class="font-bold text-sm text-white">${item.phrase}</span>
+            </div>
+            <p class="text-xs text-slate-400 mt-0.5">${item.trans}</p>
+          </div>
+          <button onclick="deletePhrase('${item.id}')" class="text-slate-500 hover:text-rose-400 p-2 text-sm transition">
+            <i class="fa-solid fa-trash-can"></i>
+          </button>
+        </div>
+      `).join('');
+    }
+
+    function deletePhrase(id) {
+      phrases = phrases.filter(p => p.id !== id);
+      saveToStorage();
+      renderVocabList();
+    }
+
+    // Modal Import / Export
+    document.getElementById('import-btn').onclick = () => document.getElementById('import-modal').classList.remove('hidden');
+    function closeImportModal() { document.getElementById('import-modal').classList.add('hidden'); }
+
+    function processBatchImport() {
+      const raw = document.getElementById('import-text').value;
+      const lines = raw.split('\n');
+      let added = 0;
+
+      lines.forEach(l => {
+        const line = l.trim();
+        if (!line) return;
+        let lang = 'ES';
+        if (line.includes('(DE)') || line.includes('[DE]')) lang = 'DE';
+        else if (line.includes('(EN)') || line.includes('[EN]')) lang = 'EN';
+
+        const clean = line.replace(/\((ES|DE|EN)\)|\[(ES|DE|EN)\]/gi, '').trim();
+        let parts = clean.split(/—|-|:/);
+        if (parts.length >= 2) {
+          const phrase = parts[0].trim();
+          const trans = parts[1].trim();
+          phrases.unshift({ id: Date.now().toString() + Math.random(), lang, phrase, trans, example: '', count: 0 });
+          added++;
+        }
+      });
+
+      saveToStorage();
+      closeImportModal();
+      document.getElementById('import-text').value = '';
+      alert(`Успешно импортировано ${added} выражений.`);
+      renderNewDrillCard();
+    }
+
+    document.getElementById('export-btn').onclick = () => {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(phrases, null, 2));
+      const dl = document.createElement('a');
+      dl.setAttribute("href", dataStr);
+      dl.setAttribute("download", "polyglot_phrases_backup.json");
+      dl.click();
+    };
+
+    window.onload = init;
+  </script>
+</body>
+</html>

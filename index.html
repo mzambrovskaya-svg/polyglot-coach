@@ -13,7 +13,6 @@
       100% { transform: scale(0.95); opacity: 0.8; }
     }
     .recording-pulse { animation: pulse-ring 1.5s infinite ease-in-out; }
-    .card-flip { perspective: 1000px; }
   </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans select-none antialiased">
@@ -26,11 +25,15 @@
         <span class="font-bold text-lg tracking-wide text-white">Polyglot Lab</span>
       </div>
       <div class="flex items-center space-x-2">
-        <button id="import-btn" class="bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-200 border border-slate-600 transition">
+        <button id="import-btn" class="bg-slate-700 hover:bg-slate-600 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-200 border border-slate-600 transition">
           <i class="fa-solid fa-file-import mr-1"></i> Импорт
         </button>
-        <button id="export-btn" class="bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-200 border border-slate-600 transition">
-          <i class="fa-solid fa-download mr-1"></i> JSON
+        <button id="export-btn" class="bg-slate-700 hover:bg-slate-600 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-200 border border-slate-600 transition">
+          <i class="fa-solid fa-download"></i>
+        </button>
+        <button onclick="openSettingsModal()" id="settings-btn" class="bg-slate-700 hover:bg-slate-600 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-200 border border-slate-600 transition relative">
+          <i class="fa-solid fa-gear"></i>
+          <span id="api-status-dot" class="w-2 h-2 rounded-full bg-rose-500 absolute -top-0.5 -right-0.5"></span>
         </button>
       </div>
     </div>
@@ -75,7 +78,6 @@
       <!-- Flashcard Area -->
       <div id="drill-card" class="bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-xl flex-1 flex flex-col justify-between min-h-[360px]">
         <div>
-          <!-- Target Language Badge -->
           <div class="flex justify-between items-center mb-4">
             <div id="drill-lang-badge" class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide bg-sky-500/20 text-sky-400 border border-sky-500/30">
               🇪🇸 Переведите на ИСПАНСКИЙ
@@ -85,17 +87,14 @@
             </button>
           </div>
 
-          <!-- Prompt Question (Russian context) -->
           <p class="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-1">Русское значение / Ситуация:</p>
           <h2 id="drill-prompt" class="text-2xl font-bold text-white mb-4 leading-snug">Загрузка...</h2>
 
-          <!-- User Spoken Result Display -->
           <div id="drill-speech-container" class="mt-4 p-3 bg-slate-900/60 rounded-xl border border-slate-700/60 min-h-[56px] flex items-center">
             <i class="fa-solid fa-comment-dots text-slate-500 mr-2.5"></i>
             <span id="drill-spoken-text" class="text-sm text-slate-300 italic">Нажмите на микрофон и произнесите ответ...</span>
           </div>
 
-          <!-- Target Reveal (Hidden initially) -->
           <div id="drill-reveal-section" class="mt-4 p-4 bg-sky-950/40 border border-sky-800/40 rounded-xl hidden">
             <p class="text-xs uppercase tracking-wider text-sky-400 font-bold mb-1">Эталонный перевод:</p>
             <p id="drill-target-phrase" class="text-xl font-bold text-white tracking-wide"></p>
@@ -103,7 +102,6 @@
           </div>
         </div>
 
-        <!-- Card Footer Actions -->
         <div class="mt-6 flex flex-col gap-3">
           <div class="flex items-center justify-center gap-4">
             <button id="mic-drill-btn" onclick="toggleVoiceRecognition()" class="w-16 h-16 rounded-full bg-sky-500 text-white flex items-center justify-center shadow-lg shadow-sky-500/30 hover:bg-sky-400 transition transform active:scale-95">
@@ -114,7 +112,7 @@
             <button onclick="revealPhrase(false)" id="btn-show" class="flex-1 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl text-xs font-semibold text-slate-200 transition">
               <i class="fa-solid fa-eye mr-1"></i> Показать
             </button>
-            <button onclick="nextCard(true)" id="btn-next" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-xs font-semibold text-white transition">
+            <button onclick="nextCard()" id="btn-next" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-xs font-semibold text-white transition">
               Дальше <i class="fa-solid fa-arrow-right ml-1"></i>
             </button>
           </div>
@@ -137,7 +135,6 @@
 
       <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-xl flex-1 flex flex-col justify-between min-h-[380px]">
         <div>
-          <!-- Grammatical Topic Header -->
           <div class="flex justify-between items-center mb-3">
             <span id="verb-badge" class="px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30">
               Subjuntivo
@@ -147,14 +144,12 @@
             </span>
           </div>
 
-          <!-- Sentence with blank -->
           <p class="text-xs text-slate-400 uppercase font-semibold mb-1">Поставьте глагол в нужную форму:</p>
           <div id="verb-sentence" class="text-xl font-medium text-white mb-3 leading-relaxed">
             Es necesario que tú <span class="text-amber-400 underline decoration-2 font-bold">[____]</span> aquí.
           </div>
           <p id="verb-translation" class="text-xs text-slate-400 italic mb-4">"Нужно, чтобы ты положил это сюда."</p>
 
-          <!-- Input Field with special Spanish char helpers -->
           <div class="space-y-2">
             <div class="flex gap-2">
               <input type="text" id="verb-input" placeholder="Введите форму глагола..." class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-white placeholder-slate-500 text-base focus:border-amber-400 focus:outline-none">
@@ -162,7 +157,6 @@
                 Проверить
               </button>
             </div>
-            <!-- Accent character buttons -->
             <div class="flex gap-1.5 justify-center">
               <button onclick="insertChar('á')" class="bg-slate-700 hover:bg-slate-600 text-xs px-2 py-1 rounded text-slate-200">á</button>
               <button onclick="insertChar('é')" class="bg-slate-700 hover:bg-slate-600 text-xs px-2 py-1 rounded text-slate-200">é</button>
@@ -173,7 +167,6 @@
             </div>
           </div>
 
-          <!-- Feedback Box -->
           <div id="verb-feedback" class="mt-4 p-3.5 rounded-xl border hidden text-xs leading-relaxed"></div>
         </div>
 
@@ -191,29 +184,39 @@
     <!-- TAB 3: ADD PHRASE -->
     <section id="view-add" class="flex-1 hidden">
       <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-xl">
-        <h3 class="font-bold text-lg text-white mb-4 flex items-center">
-          <i class="fa-solid fa-square-plus text-sky-400 mr-2"></i> Новое выражение
-        </h3>
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="font-bold text-lg text-white flex items-center">
+            <i class="fa-solid fa-square-plus text-sky-400 mr-2"></i> Новое выражение
+          </h3>
+          <button type="button" onclick="enrichSinglePhraseWithAI()" id="ai-enrich-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition shadow">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> Авто-заполнение AI
+          </button>
+        </div>
         
         <form id="add-phrase-form" onsubmit="saveNewPhrase(event)" class="space-y-4">
           <div>
-            <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Язык</label>
+            <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Иностранное выражение</label>
+            <input type="text" id="input-phrase" oninput="autoDetectLocalLang(this.value)" required placeholder="Введите фразу (например: dar por sentado)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:border-sky-400 focus:outline-none text-sm">
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Язык (определяется автоматически)</label>
             <div class="grid grid-cols-3 gap-2">
               <label class="cursor-pointer">
                 <input type="radio" name="lang" value="ES" checked class="peer sr-only">
-                <div class="p-2.5 text-center bg-slate-900 border border-slate-700 peer-checked:border-sky-400 peer-checked:bg-sky-500/10 rounded-xl text-xs font-bold text-slate-300 peer-checked:text-sky-300">
+                <div class="p-2 text-center bg-slate-900 border border-slate-700 peer-checked:border-amber-400 peer-checked:bg-amber-500/10 rounded-xl text-xs font-bold text-slate-300 peer-checked:text-amber-300">
                   🇪🇸 Испанский
                 </div>
               </label>
               <label class="cursor-pointer">
                 <input type="radio" name="lang" value="DE" class="peer sr-only">
-                <div class="p-2.5 text-center bg-slate-900 border border-slate-700 peer-checked:border-sky-400 peer-checked:bg-sky-500/10 rounded-xl text-xs font-bold text-slate-300 peer-checked:text-sky-300">
+                <div class="p-2 text-center bg-slate-900 border border-slate-700 peer-checked:border-rose-400 peer-checked:bg-rose-500/10 rounded-xl text-xs font-bold text-slate-300 peer-checked:text-rose-300">
                   🇩🇪 Немецкий
                 </div>
               </label>
               <label class="cursor-pointer">
                 <input type="radio" name="lang" value="EN" class="peer sr-only">
-                <div class="p-2.5 text-center bg-slate-900 border border-slate-700 peer-checked:border-sky-400 peer-checked:bg-sky-500/10 rounded-xl text-xs font-bold text-slate-300 peer-checked:text-sky-300">
+                <div class="p-2 text-center bg-slate-900 border border-slate-700 peer-checked:border-sky-400 peer-checked:bg-sky-500/10 rounded-xl text-xs font-bold text-slate-300 peer-checked:text-sky-300">
                   🇬🇧 Английский
                 </div>
               </label>
@@ -221,27 +224,17 @@
           </div>
 
           <div>
-            <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Иностранное выражение</label>
-            <div class="relative">
-              <input type="text" id="input-phrase" required placeholder="Например: dar por sentado" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white pr-10 focus:border-sky-400 focus:outline-none text-sm">
-              <button type="button" onclick="dictateField('input-phrase')" class="absolute right-2.5 top-2.5 text-slate-400 hover:text-sky-400 p-1">
-                <i class="fa-solid fa-microphone"></i>
-              </button>
-            </div>
-          </div>
-
-          <div>
             <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Значение на русском</label>
-            <input type="text" id="input-translation" required placeholder="Например: принимать как должное" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:border-sky-400 focus:outline-none text-sm">
+            <input type="text" id="input-translation" required placeholder="Заполнится через AI или введите вручную" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:border-sky-400 focus:outline-none text-sm">
           </div>
 
           <div>
             <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Пример предложения (контекст)</label>
-            <input type="text" id="input-example" placeholder="No des nada por sentado en este proyecto." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:border-sky-400 focus:outline-none text-sm">
+            <textarea id="input-example" rows="2" placeholder="Сгенерируется через AI или введите свой пример..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:border-sky-400 focus:outline-none text-sm"></textarea>
           </div>
 
           <button type="submit" class="w-full py-3 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold rounded-xl text-sm transition">
-            Сохранить в базу
+            Сохранить в словарь
           </button>
         </form>
       </div>
@@ -269,20 +262,46 @@
         <h3 class="font-bold text-white text-base">Импорт заметок из Notizen</h3>
         <button onclick="closeImportModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
       </div>
-      <p class="text-xs text-slate-400 mb-3">
-        Вставьте строки из вашей заметки. Форматы: <br>
-        <code class="text-sky-300">dar por sentado — принимать как должное (ES)</code> или <code class="text-sky-300">auf Anhieb: сразу, с первой попытки</code>
+      <p class="text-xs text-slate-400 mb-2">
+        Вставьте фразы (по одной на строку). Можно писать просто слово или пару <code>слово — перевод</code>:
       </p>
-      <textarea id="import-text" rows="8" placeholder="Вставьте сюда текст заметок..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-white focus:outline-none font-mono"></textarea>
+      <textarea id="import-text" rows="7" placeholder="dar por sentado — принимать как должное&#10;auf Anhieb&#10;cut corners — срезать углы" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-white focus:outline-none font-mono"></textarea>
+      
+      <label class="flex items-center space-x-2 mt-3 cursor-pointer">
+        <input type="checkbox" id="import-use-ai" checked class="rounded bg-slate-900 border-slate-700 text-sky-500">
+        <span class="text-xs text-slate-300">✨ Определить языки, перевести и добавить примеры через Gemini AI</span>
+      </label>
+
+      <div id="import-progress" class="text-xs text-amber-400 mt-2 hidden">
+        <i class="fa-solid fa-spinner fa-spin mr-1"></i> Обработка списка с помощью Gemini AI...
+      </div>
+
       <div class="mt-4 flex justify-end gap-2">
         <button onclick="closeImportModal()" class="px-4 py-2 bg-slate-700 rounded-xl text-xs text-slate-300">Отмена</button>
-        <button onclick="processBatchImport()" class="px-4 py-2 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold rounded-xl text-xs">Импортировать</button>
+        <button onclick="processBatchImport()" id="btn-run-import" class="px-4 py-2 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold rounded-xl text-xs">Импортировать</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Gemini API Settings -->
+  <div id="settings-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-5 shadow-2xl">
+      <div class="flex justify-between items-center mb-3">
+        <h3 class="font-bold text-white text-base"><i class="fa-solid fa-key text-amber-400 mr-1.5"></i> Настройка Gemini API</h3>
+        <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+      <p class="text-xs text-slate-400 mb-3 leading-relaxed">
+        Вставьте ваш ключ из <strong>Google AI Studio</strong> (начинается на <code>AIza...</code>). Ключ сохраняется только в памяти вашего телефона.
+      </p>
+      <input type="password" id="gemini-api-key-input" placeholder="AIzaSy..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-white focus:border-sky-400 focus:outline-none font-mono mb-4">
+      <div class="flex justify-end gap-2">
+        <button onclick="closeSettingsModal()" class="px-4 py-2 bg-slate-700 rounded-xl text-xs text-slate-300">Закрыть</button>
+        <button onclick="saveApiKey()" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl text-xs">Сохранить ключ</button>
       </div>
     </div>
   </div>
 
   <script>
-    // Initial Seed Database
     const defaultData = [
       { id: '1', lang: 'ES', phrase: 'dar por sentado', trans: 'принимать как должное', example: 'No des por sentado que todo irá bien.', count: 0 },
       { id: '2', lang: 'ES', phrase: 'meter la pata', trans: 'оплошать, сесть в лужу', example: 'He metido la pata con mi jefe hoy.', count: 0 },
@@ -291,15 +310,14 @@
       { id: '5', lang: 'EN', phrase: 'cut corners', trans: 'срезать углы, делать небрежно', example: 'Do not cut corners on security compliance.', count: 0 }
     ];
 
-    // Spanish Verbs Data Bank
     const spanishVerbDrills = [
-      { tense: 'SUBJ', infinitive: 'poner', trigger: 'Es importante que...', sentence: 'Es importante que tú ____ las llaves en la mesa.', target: 'pongas', trans: 'Важно, чтобы ты положил ключи на стол.', rule: 'Presente de Subjuntivo: глагол poner имеет основу pong- -> tú pongas.' },
-      { tense: 'SUBJ', infinitive: 'hacer', trigger: 'Quiero que...', sentence: 'Quiero que ellos ____ los deberes ahora.', target: 'hagan', trans: 'Я хочу, чтобы они сделали домашнее задание сейчас.', rule: 'Subjuntivo: hacer -> yo hago -> ellos hagan.' },
-      { tense: 'SUBJ', infinitive: 'venir', trigger: 'Dudo que...', sentence: 'Dudo que él ____ a la reunión hoy.', target: 'venga', trans: 'Сомневаюсь, что он придет на встречу сегодня.', rule: 'Глагол venir в субхунтиве: venga, vengas, venga.' },
-      { tense: 'INDEF', infinitive: 'decir', trigger: 'Ayer...', sentence: 'Ayer yo le ____ la verdad a María.', target: 'dije', trans: 'Вчера я сказал Марии правду.', rule: 'Pretérito Indefinido: неправильная основа dij- без ударения на конце (yo dije).' },
-      { tense: 'INDEF', infinitive: 'ir', trigger: 'El año pasado...', sentence: 'El año pasado nosotros ____ a Valencia.', target: 'fuimos', trans: 'В прошлом году мы ездили в Валенсию.', rule: 'Indefinido от ir/ser: fuimos (nosotros).' },
-      { tense: 'IMPERF', infinitive: 'ser', trigger: 'Cuando era niño...', sentence: 'Cuando yo era pequeño, siempre ____ muy curioso.', target: 'era', trans: 'Когда я был маленьким, я всегда был любопытным.', rule: 'Pretérito Imperfecto от ser: era, eras, era.' },
-      { tense: 'PERF', infinitive: 'abrir', trigger: 'Hoy...', sentence: 'Hoy ellos han ____ una nueva cuenta bancaria.', target: 'abierto', trans: 'Сегодня они открыли новый банковский счет.', rule: 'Причастие от abrir — abierto (неправильное).' }
+      { tense: 'SUBJ', infinitive: 'poner', sentence: 'Es importante que tú ____ las llaves en la mesa.', target: 'pongas', trans: 'Важно, чтобы ты положил ключи на стол.', rule: 'Presente de Subjuntivo: глагол poner имеет основу pong- -> tú pongas.' },
+      { tense: 'SUBJ', infinitive: 'hacer', sentence: 'Quiero que ellos ____ los deberes ahora.', target: 'hagan', trans: 'Я хочу, чтобы они сделали домашнее задание сейчас.', rule: 'Subjuntivo: hacer -> yo hago -> ellos hagan.' },
+      { tense: 'SUBJ', infinitive: 'venir', sentence: 'Dudo que él ____ a la reunión hoy.', target: 'venga', trans: 'Сомневаюсь, что он придет на встречу сегодня.', rule: 'Глагол venir в субхунтиве: venga, vengas, venga.' },
+      { tense: 'INDEF', infinitive: 'decir', sentence: 'Ayer yo le ____ la verdad a María.', target: 'dije', trans: 'Вчера я сказал Марии правду.', rule: 'Pretérito Indefinido: неправильная основа dij- без ударения на конце (yo dije).' },
+      { tense: 'INDEF', infinitive: 'ir', sentence: 'El año pasado nosotros ____ a Valencia.', target: 'fuimos', trans: 'В прошлом году мы ездили в Валенсию.', rule: 'Indefinido от ir/ser: fuimos (nosotros).' },
+      { tense: 'IMPERF', infinitive: 'ser', sentence: 'Cuando yo era pequeño, siempre ____ muy curioso.', target: 'era', trans: 'Когда я был маленьким, я всегда был любопытным.', rule: 'Pretérito Imperfecto от ser: era, eras, era.' },
+      { tense: 'PERF', infinitive: 'abrir', sentence: 'Hoy ellos han ____ una nueva cuenta bancaria.', target: 'abierto', trans: 'Сегодня они открыли новый банковский счет.', rule: 'Причастие от abrir — abierto (неправильное).' }
     ];
 
     let phrases = JSON.parse(localStorage.getItem('polyglot_phrases')) || defaultData;
@@ -308,21 +326,18 @@
     let recognition = null;
     let isRecording = false;
 
-    // Speech Recognition Setup
     window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (window.SpeechRecognition) {
       recognition = new SpeechRecognition();
       recognition.continuous = false;
       recognition.interimResults = false;
-      recognition.onresult = (event) => {
-        const spoken = event.results[0][0].transcript;
-        handleSpeechResult(spoken);
-      };
+      recognition.onresult = (event) => handleSpeechResult(event.results[0][0].transcript);
       recognition.onerror = () => stopRecording();
       recognition.onend = () => stopRecording();
     }
 
     function init() {
+      updateApiDot();
       renderNewDrillCard();
       renderNewVerbTask();
       renderVocabList();
@@ -332,7 +347,117 @@
       localStorage.setItem('polyglot_phrases', JSON.stringify(phrases));
     }
 
-    // Tab Navigation
+    // API Key Management
+    function getApiKey() {
+      return localStorage.getItem('gemini_api_key') || '';
+    }
+
+    function updateApiDot() {
+      const dot = document.getElementById('api-status-dot');
+      if (getApiKey()) {
+        dot.classList.remove('bg-rose-500');
+        dot.classList.add('bg-emerald-400');
+      } else {
+        dot.classList.remove('bg-emerald-400');
+        dot.classList.add('bg-rose-500');
+      }
+    }
+
+    function openSettingsModal() {
+      document.getElementById('gemini-api-key-input').value = getApiKey();
+      document.getElementById('settings-modal').classList.remove('hidden');
+    }
+
+    function closeSettingsModal() {
+      document.getElementById('settings-modal').classList.add('hidden');
+    }
+
+    function saveApiKey() {
+      const key = document.getElementById('gemini-api-key-input').value.trim();
+      localStorage.setItem('gemini_api_key', key);
+      updateApiDot();
+      closeSettingsModal();
+    }
+
+    // Heuristic Local Language Detection (fallback when offline/no key)
+    function detectLanguageHeuristic(text) {
+      const t = text.toLowerCase();
+      if (/[ñ¿¡áéíóú]/.test(t) || /\b(el|la|los|las|por|para|con|que|de|del|un|una)\b/.test(t)) return 'ES';
+      if (/[äöüß]/.test(t) || /\b(der|die|das|den|dem|des|ein|eine|auf|mit|für|zu|und|sein|haben)\b/.test(t)) return 'DE';
+      return 'EN';
+    }
+
+    function autoDetectLocalLang(val) {
+      if (!val || val.trim().length < 2) return;
+      const detected = detectLanguageHeuristic(val);
+      const radio = document.querySelector(`input[name="lang"][value="${detected}"]`);
+      if (radio) radio.checked = true;
+    }
+
+    // Gemini API Call
+    async function callGeminiJSON(promptText) {
+      const apiKey = getApiKey();
+      if (!apiKey) throw new Error('NO_KEY');
+
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: promptText }] }],
+          generationConfig: { responseMimeType: "application/json" }
+        })
+      });
+
+      if (!response.ok) throw new Error('API_ERROR');
+      const data = await response.json();
+      const rawText = data.candidates[0].content.parts[0].text;
+      return JSON.parse(rawText);
+    }
+
+    async function enrichSinglePhraseWithAI() {
+      const phrase = document.getElementById('input-phrase').value.trim();
+      if (!phrase) {
+        alert('Сначала введите иностранное выражение.');
+        return;
+      }
+      if (!getApiKey()) {
+        openSettingsModal();
+        return;
+      }
+
+      const btn = document.getElementById('ai-enrich-btn');
+      const origHTML = btn.innerHTML;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Думаю...';
+      btn.disabled = true;
+
+      try {
+        const prompt = `Analyze this foreign phrase or word: "${phrase}".
+Return a JSON object with exact keys:
+- "lang": one of "ES" (Spanish), "DE" (German), or "EN" (English)
+- "translation": concise natural translation into Russian
+- "example": one short, realistic, everyday example sentence using this phrase in the original language`;
+
+        const res = await callGeminiJSON(prompt);
+        if (res.lang) {
+          const r = document.querySelector(`input[name="lang"][value="${res.lang}"]`);
+          if (r) r.checked = true;
+        }
+        if (res.translation && !document.getElementById('input-translation').value.trim()) {
+          document.getElementById('input-translation').value = res.translation;
+        }
+        if (res.example) {
+          document.getElementById('input-example').value = res.example;
+        }
+      } catch (e) {
+        alert('Не удалось связаться с Gemini API. Проверьте ключ в настройках (шестерёнка вверху).');
+      } finally {
+        btn.innerHTML = origHTML;
+        btn.disabled = false;
+      }
+    }
+
+    // Tabs
     function switchTab(tab) {
       ['drill', 'verbs', 'add', 'list'].forEach(t => {
         document.getElementById(`view-${t}`).classList.add('hidden');
@@ -345,7 +470,7 @@
       if (tab === 'list') renderVocabList();
     }
 
-    // Drill Logic
+    // Drill
     function getFilteredPhrases() {
       const f = document.getElementById('filter-drill-lang').value;
       return f === 'ALL' ? phrases : phrases.filter(p => p.lang === f);
@@ -387,13 +512,11 @@
       if (autoSpeak) speakTargetPhrase();
     }
 
-    function nextCard() {
-      renderNewDrillCard();
-    }
+    function nextCard() { renderNewDrillCard(); }
 
     function toggleVoiceRecognition() {
       if (!recognition) {
-        alert('Распознавание речи не поддерживается в этом браузере. Рекомендуется использовать Chrome на Android.');
+        alert('Распознавание речи не поддерживается в этом браузере.');
         return;
       }
       if (isRecording) {
@@ -427,7 +550,7 @@
       window.speechSynthesis.speak(utterance);
     }
 
-    // Verb Grammar Lab Logic
+    // Verbs
     function renderNewVerbTask() {
       const filter = document.getElementById('verb-tense-filter').value;
       const pool = filter === 'ALL' ? spanishVerbDrills : spanishVerbDrills.filter(v => v.tense === filter);
@@ -449,7 +572,6 @@
       if (val === currentVerb.target.toLowerCase()) {
         fb.className = 'mt-4 p-3.5 rounded-xl border border-emerald-500/40 bg-emerald-950/40 text-emerald-300 text-xs';
         fb.innerHTML = `<strong>¡Excelente!</strong> Форма правильная: <em>${currentVerb.target}</em>. <br>${currentVerb.rule}`;
-        // Speak sentence
         if (window.speechSynthesis) {
           const u = new SpeechSynthesisUtterance(currentVerb.sentence.replace('____', currentVerb.target));
           u.lang = 'es-ES';
@@ -489,7 +611,7 @@
       renderNewDrillCard();
     }
 
-    // Vocabulary Listing
+    // List
     function renderVocabList() {
       const container = document.getElementById('vocab-container');
       const q = document.getElementById('search-box').value.toLowerCase();
@@ -514,6 +636,7 @@
               <span class="font-bold text-sm text-white">${item.phrase}</span>
             </div>
             <p class="text-xs text-slate-400 mt-0.5">${item.trans}</p>
+            ${item.example ? `<p class="text-[11px] text-sky-400/80 italic mt-1">"${item.example}"</p>` : ''}
           </div>
           <button onclick="deletePhrase('${item.id}')" class="text-slate-500 hover:text-rose-400 p-2 text-sm transition">
             <i class="fa-solid fa-trash-can"></i>
@@ -528,37 +651,78 @@
       renderVocabList();
     }
 
-    // Modal Import / Export
+    // Batch Import with AI
     document.getElementById('import-btn').onclick = () => document.getElementById('import-modal').classList.remove('hidden');
     function closeImportModal() { document.getElementById('import-modal').classList.add('hidden'); }
 
-    function processBatchImport() {
-      const raw = document.getElementById('import-text').value;
-      const lines = raw.split('\n');
-      let added = 0;
+    async function processBatchImport() {
+      const raw = document.getElementById('import-text').value.trim();
+      if (!raw) return;
+      const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+      const useAI = document.getElementById('import-use-ai').checked && getApiKey();
 
-      lines.forEach(l => {
-        const line = l.trim();
-        if (!line) return;
-        let lang = 'ES';
-        if (line.includes('(DE)') || line.includes('[DE]')) lang = 'DE';
-        else if (line.includes('(EN)') || line.includes('[EN]')) lang = 'EN';
+      if (useAI) {
+        const btn = document.getElementById('btn-run-import');
+        const prog = document.getElementById('import-progress');
+        btn.disabled = true;
+        prog.classList.remove('hidden');
 
-        const clean = line.replace(/\((ES|DE|EN)\)|\[(ES|DE|EN)\]/gi, '').trim();
-        let parts = clean.split(/—|-|:/);
-        if (parts.length >= 2) {
-          const phrase = parts[0].trim();
-          const trans = parts[1].trim();
-          phrases.unshift({ id: Date.now().toString() + Math.random(), lang, phrase, trans, example: '', count: 0 });
-          added++;
+        try {
+          const prompt = `Process these vocabulary notes for a Russian speaker learning Spanish (ES), German (DE), and English (EN).
+Lines:
+${lines.join('\n')}
+
+Return a JSON array of objects, one for each line, with exact keys:
+- "phrase": the foreign word/expression
+- "lang": "ES", "DE", or "EN"
+- "trans": natural Russian translation (if already provided in the line, refine/keep it; if missing, translate it)
+- "example": one short, realistic example sentence in the foreign language`;
+
+          const results = await callGeminiJSON(prompt);
+          if (Array.isArray(results)) {
+            results.reverse().forEach(item => {
+              phrases.unshift({
+                id: Date.now().toString() + Math.random(),
+                lang: ['ES', 'DE', 'EN'].includes(item.lang) ? item.lang : detectLanguageHeuristic(item.phrase),
+                phrase: item.phrase,
+                trans: item.trans || '',
+                example: item.example || '',
+                count: 0
+              });
+            });
+            saveToStorage();
+            closeImportModal();
+            document.getElementById('import-text').value = '';
+            renderNewDrillCard();
+            renderVocabList();
+            alert(`AI обработал и добавил ${results.length} карточек с примерами.`);
+          }
+        } catch (e) {
+          alert('Ошибка AI при обработке. Проверьте API-ключ или импортируйте без галочки AI.');
+        } finally {
+          btn.disabled = false;
+          prog.classList.add('hidden');
         }
+        return;
+      }
+
+      // Fallback Local Import
+      let added = 0;
+      lines.forEach(line => {
+        let parts = line.split(/—|-|:/);
+        const phrase = parts[0].replace(/\((ES|DE|EN)\)|\[(ES|DE|EN)\]/gi, '').trim();
+        const trans = parts.length >= 2 ? parts[1].trim() : '(требуется перевод)';
+        const lang = detectLanguageHeuristic(phrase);
+        phrases.unshift({ id: Date.now().toString() + Math.random(), lang, phrase, trans, example: '', count: 0 });
+        added++;
       });
 
       saveToStorage();
       closeImportModal();
       document.getElementById('import-text').value = '';
-      alert(`Успешно импортировано ${added} выражений.`);
       renderNewDrillCard();
+      renderVocabList();
+      alert(`Импортировано ${added} выражений.`);
     }
 
     document.getElementById('export-btn').onclick = () => {

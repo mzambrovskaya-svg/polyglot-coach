@@ -465,7 +465,7 @@
 Return a JSON object with exact keys:
 - "lang": one of "ES" (Spanish), "DE" (German), or "EN" (English)
 - "translation": concise natural translation into Russian
-- "example": one short, realistic, everyday example sentence using this phrase in the original language`;
+- "example": MUST be written strictly in the detected foreign language (Spanish if lang=ES, German if lang=DE, English if lang=EN). NEVER use Russian or Cyrillic in this field. Provide one short, realistic sentence using "${phrase}".`;
 
         const res = await callAIJSON(prompt);
         if (res.lang) {
@@ -705,7 +705,7 @@ Return a JSON object with a single key "items" containing an array of objects, o
 - "phrase": the foreign word/expression
 - "lang": "ES", "DE", or "EN"
 - "trans": natural Russian translation (if already provided in the line, refine/keep it; if missing, translate it)
-- "example": one short, realistic example sentence in the foreign language`;
+- "example": MUST be written strictly in the detected foreign language (ES, DE, or EN). NEVER use Russian in this field.`;
 
           const data = await callAIJSON(prompt);
           const results = data.items || [];

@@ -325,6 +325,7 @@
     let currentVerb = null;
     let recognition = null;
     let isRecording = false;
+    let cachedGroqModel = null;
 
     window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (window.SpeechRecognition) {
@@ -347,7 +348,6 @@
       localStorage.setItem('polyglot_phrases', JSON.stringify(phrases));
     }
 
-    // API Key Management
     function getApiKey() {
       return localStorage.getItem('groq_api_key') || '';
     }
@@ -380,7 +380,6 @@
       closeSettingsModal();
     }
 
-    // Local Fallback Language Detection
     function detectLanguageHeuristic(text) {
       const t = text.toLowerCase();
       if (/[ñ¿¡áéíóú]/.test(t) || /\b(el|la|los|las|por|para|con|que|de|del|un|una)\b/.test(t)) return 'ES';
@@ -395,10 +394,11 @@
       if (radio) radio.checked = true;
     }
 
-// Groq API Call (с учётом лимита max_tokens и переключением моделей)
-    let cachedGroqModel = null;
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
 
-    async function callAIJSON(promptText) {
+    async function callAIJSON(promptText, progEl = null) {
       const apiKey = getApiKey();
       if (!apiKey) throw new Error('Ключ не введён');
 
@@ -429,41 +429,55 @@
       ].filter((v, i, a) => a.indexOf(v) === i);
 
       let lastError = null;
-      for (const modelId of ordered) {
-        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`
-          },
-          body: JSON.stringify({
-            model: modelId,
-            messages: [
-              { role: 'system', content: 'Output valid JSON only.' },
-              { role: 'user', content: promptText }
-            ],
-            response_format: { type: 'json_object' },
-            max_tokens: 900,
-            temperature: 0.2
-          })
-        });
+      for (let attempt = 0; attempt < 2; attempt++) {
+        for (const modelId of ordered) {
+          const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+              model: modelId,
+              messages: [
+                { role: 'system', content: 'Output valid JSON only.' },
+                { role: 'user', content: promptText }
+              ],
+              response_format: { type: 'json_object' },
+              max_tokens: 900,
+              temperature: 0.2
+            })
+          });
 
-        const data = await response.json();
-        if (response.ok) {
-          cachedGroqModel = modelId;
-          const raw = data.choices[0].message.content
-            .replace(/<think>[\s\S]*?<\/think>/g, '')
-            .replace(/[\u0000-\u0019]+/g, ' ')
-            .trim();
-          const jsonMatch = raw.match(/\{[\s\S]*\}/);
-          return JSON.parse(jsonMatch ? jsonMatch[0] : raw);
+          const data = await response.json();
+          if (response.ok) {
+            cachedGroqModel = modelId;
+            const raw = data.choices[0].message.content
+              .replace(/<think>[\s\S]*?<\/think>/g, '')
+              .replace(/[\u0000-\u0019]+/g, ' ')
+              .trim();
+            const jsonMatch = raw.match(/\{[\s\S]*\}/);
+            return JSON.parse(jsonMatch ? jsonMatch[0] : raw);
+          }
+
+          lastError = data?.error?.message || `HTTP ${response.status}`;
+          cachedGroqModel = null;
         }
-        lastError = data?.error?.message || `HTTP ${response.status}`;
-        cachedGroqModel = null;
+
+        if (attempt === 0 && /rate limit|429|tokens per minute/i.test(lastError || '')) {
+          if (progEl) {
+            progEl.innerHTML = '<i class="fa-solid fa-clock mr-1"></i> Пауза 15 сек (обновление бесплатного лимита Groq)...';
+          }
+          await sleep(15000);
+        } else {
+          break;
+        }
       }
 
-      throw new Error(lastError || 'Не удалось получить ответ от моделей Groq');
-    } {
+      throw new Error(lastError || 'Не удалось получить ответ от Groq');
+    }
+
+    async function enrichSinglePhraseWithAI() {
       const phrase = document.getElementById('input-phrase').value.trim();
       if (!phrase) {
         alert('Сначала введите иностранное выражение.');
@@ -505,7 +519,6 @@ Return a JSON object with exact keys:
       }
     }
 
-    // Tabs
     function switchTab(tab) {
       ['drill', 'verbs', 'add', 'list'].forEach(t => {
         document.getElementById(`view-${t}`).classList.add('hidden');
@@ -518,7 +531,6 @@ Return a JSON object with exact keys:
       if (tab === 'list') renderVocabList();
     }
 
-    // Drill
     function getFilteredPhrases() {
       const f = document.getElementById('filter-drill-lang').value;
       return f === 'ALL' ? phrases : phrases.filter(p => p.lang === f);
@@ -598,7 +610,6 @@ Return a JSON object with exact keys:
       window.speechSynthesis.speak(utterance);
     }
 
-    // Verbs
     function renderNewVerbTask() {
       const filter = document.getElementById('verb-tense-filter').value;
       const pool = filter === 'ALL' ? spanishVerbDrills : spanishVerbDrills.filter(v => v.tense === filter);
@@ -644,7 +655,6 @@ Return a JSON object with exact keys:
       fb.innerHTML = `<strong>Ответ:</strong> ${currentVerb.target} <br><strong>Правило:</strong> ${currentVerb.rule}`;
     }
 
-    // Add Phrase
     function saveNewPhrase(e) {
       e.preventDefault();
       const lang = document.querySelector('input[name="lang"]:checked').value;
@@ -659,7 +669,6 @@ Return a JSON object with exact keys:
       renderNewDrillCard();
     }
 
-    // List
     function renderVocabList() {
       const container = document.getElementById('vocab-container');
       const q = document.getElementById('search-box').value.toLowerCase();
@@ -699,7 +708,6 @@ Return a JSON object with exact keys:
       renderVocabList();
     }
 
-    // Batch Import with AI (с разбивкой на пакеты и защитой от кавычек)
     document.getElementById('import-btn').onclick = () => document.getElementById('import-modal').classList.remove('hidden');
     function closeImportModal() { document.getElementById('import-modal').classList.add('hidden'); }
 
@@ -715,7 +723,7 @@ Return a JSON object with exact keys:
         btn.disabled = true;
         prog.classList.remove('hidden');
 
-       const chunkSize = 5;
+        const chunkSize = 5;
         let totalAdded = 0;
 
         try {
@@ -732,7 +740,7 @@ Return a JSON object with a single key "items" containing an array of objects, o
 - "trans": keep the existing translation from the line as-is (whether in Russian or German); if missing, translate into Russian
 - "example": MUST be written strictly in the detected foreign language (ES, DE, or EN). NEVER use Russian or Cyrillic in this field.`;
 
-            const data = await callAIJSON(prompt);
+            const data = await callAIJSON(prompt, prog);
             const results = data.items || [];
             if (Array.isArray(results) && results.length > 0) {
               results.reverse().forEach(item => {
@@ -767,7 +775,6 @@ Return a JSON object with a single key "items" containing an array of objects, o
         return;
       }
 
-      // Fallback Local Import
       let added = 0;
       lines.forEach(line => {
         let parts = line.split(/—|-|:/);

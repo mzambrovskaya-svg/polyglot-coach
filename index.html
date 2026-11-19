@@ -395,60 +395,75 @@
       if (radio) radio.checked = true;
     }
 
-    // Groq API Call (строгий JSON-режим + автовыбор рабочей модели)
+// Groq API Call (с учётом лимита max_tokens и переключением моделей)
     let cachedGroqModel = null;
 
     async function callAIJSON(promptText) {
       const apiKey = getApiKey();
       if (!apiKey) throw new Error('Ключ не введён');
 
-      if (!cachedGroqModel) {
-        const modelsRes = await fetch('https://api.groq.com/openai/v1/models', {
-          headers: { 'Authorization': `Bearer ${apiKey}` }
-        });
-        const modelsData = await modelsRes.json();
-        if (!modelsRes.ok) {
-          throw new Error(modelsData?.error?.message || `Ошибка ключа: HTTP ${modelsRes.status}`);
-        }
-        const available = (modelsData.data || [])
-          .map(m => m.id)
-          .filter(id => !/whisper|guard|tts|embed|moderation|orpheus|playai|compound/i.test(id));
-        if (!available.length) throw new Error('Нет доступных текстовых моделей');
-        const preferred = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'openai/gpt-oss-120b'];
-        cachedGroqModel = preferred.find(p => available.includes(p)) || available[0];
-      }
-
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: cachedGroqModel,
-          messages: [
-            { role: 'system', content: 'You are a language data parser. Output valid JSON only.' },
-            { role: 'user', content: promptText }
-          ],
-          response_format: { type: 'json_object' },
-          temperature: 0.2
-        })
+      const modelsRes = await fetch('https://api.groq.com/openai/v1/models', {
+        headers: { 'Authorization': `Bearer ${apiKey}` }
       });
-
-      const data = await response.json();
-      if (!response.ok) {
-        cachedGroqModel = null;
-        throw new Error(data?.error?.message || `HTTP ${response.status}`);
+      const modelsData = await modelsRes.json();
+      if (!modelsRes.ok) {
+        throw new Error(modelsData?.error?.message || `Ошибка ключа: HTTP ${modelsRes.status}`);
       }
-      const raw = data.choices[0].message.content
-        .replace(/<think>[\s\S]*?<\/think>/g, '')
-        .replace(/[\u0000-\u0019]+/g, ' ')
-        .trim();
-      const jsonMatch = raw.match(/\{[\s\S]*\}/);
-      return JSON.parse(jsonMatch ? jsonMatch[0] : raw);
-    }
 
-    async function enrichSinglePhraseWithAI() {
+      const available = (modelsData.data || [])
+        .map(m => m.id)
+        .filter(id => !/whisper|guard|tts|embed|moderation|orpheus|playai|compound|qwen/i.test(id));
+
+      const fallbackPool = (modelsData.data || [])
+        .map(m => m.id)
+        .filter(id => !/whisper|guard|tts|embed|moderation|orpheus|playai|compound/i.test(id));
+
+      const candidates = available.length ? available : fallbackPool;
+      if (!candidates.length) throw new Error('Нет доступных текстовых моделей');
+
+      const preferred = ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile', 'gemma2-9b-it', 'mixtral-8x7b-32768'];
+      const ordered = [
+        ...(cachedGroqModel ? [cachedGroqModel] : []),
+        ...preferred.filter(p => candidates.includes(p)),
+        ...candidates
+      ].filter((v, i, a) => a.indexOf(v) === i);
+
+      let lastError = null;
+      for (const modelId of ordered) {
+        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+          },
+          body: JSON.stringify({
+            model: modelId,
+            messages: [
+              { role: 'system', content: 'Output valid JSON only.' },
+              { role: 'user', content: promptText }
+            ],
+            response_format: { type: 'json_object' },
+            max_tokens: 900,
+            temperature: 0.2
+          })
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+          cachedGroqModel = modelId;
+          const raw = data.choices[0].message.content
+            .replace(/<think>[\s\S]*?<\/think>/g, '')
+            .replace(/[\u0000-\u0019]+/g, ' ')
+            .trim();
+          const jsonMatch = raw.match(/\{[\s\S]*\}/);
+          return JSON.parse(jsonMatch ? jsonMatch[0] : raw);
+        }
+        lastError = data?.error?.message || `HTTP ${response.status}`;
+        cachedGroqModel = null;
+      }
+
+      throw new Error(lastError || 'Не удалось получить ответ от моделей Groq');
+    } {
       const phrase = document.getElementById('input-phrase').value.trim();
       if (!phrase) {
         alert('Сначала введите иностранное выражение.');
@@ -700,7 +715,7 @@ Return a JSON object with exact keys:
         btn.disabled = true;
         prog.classList.remove('hidden');
 
-        const chunkSize = 12;
+       const chunkSize = 5;
         let totalAdded = 0;
 
         try {

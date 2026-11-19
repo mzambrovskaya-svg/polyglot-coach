@@ -87,7 +87,7 @@
             </button>
           </div>
 
-          <p class="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-1">Русское значение / Ситуация:</p>
+          <p class="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-1">Значение / Ситуация:</p>
           <h2 id="drill-prompt" class="text-2xl font-bold text-white mb-4 leading-snug">Загрузка...</h2>
 
           <div id="drill-speech-container" class="mt-4 p-3 bg-slate-900/60 rounded-xl border border-slate-700/60 min-h-[56px] flex items-center">
@@ -224,12 +224,12 @@
           </div>
 
           <div>
-            <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Значение на русском</label>
+            <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Значение / Перевод</label>
             <input type="text" id="input-translation" required placeholder="Заполнится через AI или введите вручную" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:border-sky-400 focus:outline-none text-sm">
           </div>
 
           <div>
-            <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Пример предложения (контекст)</label>
+            <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Пример предложения (на языке оригинала)</label>
             <textarea id="input-example" rows="2" placeholder="Сгенерируется через AI или введите свой пример..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:border-sky-400 focus:outline-none text-sm"></textarea>
           </div>
 
@@ -265,7 +265,7 @@
       <p class="text-xs text-slate-400 mb-2">
         Вставьте фразы (по одной на строку). Можно писать просто слово или пару <code>слово — перевод</code>:
       </p>
-      <textarea id="import-text" rows="7" placeholder="dar por sentado — принимать как должное&#10;auf Anhieb&#10;cut corners — срезать углы" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-white focus:outline-none font-mono"></textarea>
+      <textarea id="import-text" rows="7" placeholder="dar por sentado — принимать как должное&#10;auf Anhieb&#10;cut corners — abkürzen" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-white focus:outline-none font-mono"></textarea>
       
       <label class="flex items-center space-x-2 mt-3 cursor-pointer">
         <input type="checkbox" id="import-use-ai" checked class="rounded bg-slate-900 border-slate-700 text-sky-500">
@@ -395,7 +395,7 @@
       if (radio) radio.checked = true;
     }
 
-    // Groq API Call (с автовыбором доступной модели)
+    // Groq API Call (строгий JSON-режим + автовыбор рабочей модели)
     let cachedGroqModel = null;
 
     async function callAIJSON(promptText) {
@@ -412,9 +412,9 @@
         }
         const available = (modelsData.data || [])
           .map(m => m.id)
-          .filter(id => !/whisper|guard|tts|embed|moderation|orpheus|playai/i.test(id));
+          .filter(id => !/whisper|guard|tts|embed|moderation|orpheus|playai|compound/i.test(id));
         if (!available.length) throw new Error('Нет доступных текстовых моделей');
-        const preferred = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant'];
+        const preferred = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'openai/gpt-oss-120b'];
         cachedGroqModel = preferred.find(p => available.includes(p)) || available[0];
       }
 
@@ -427,10 +427,11 @@
         body: JSON.stringify({
           model: cachedGroqModel,
           messages: [
-            { role: 'system', content: 'Return ONLY a valid JSON object. No markdown, no explanations.' },
+            { role: 'system', content: 'You are a language data parser. Output valid JSON only.' },
             { role: 'user', content: promptText }
           ],
-          temperature: 0.3
+          response_format: { type: 'json_object' },
+          temperature: 0.2
         })
       });
 
@@ -439,7 +440,10 @@
         cachedGroqModel = null;
         throw new Error(data?.error?.message || `HTTP ${response.status}`);
       }
-      const raw = data.choices[0].message.content.replace(/<think>[\s\S]*?<\/think>/g, '');
+      const raw = data.choices[0].message.content
+        .replace(/<think>[\s\S]*?<\/think>/g, '')
+        .replace(/[\u0000-\u0019]+/g, ' ')
+        .trim();
       const jsonMatch = raw.match(/\{[\s\S]*\}/);
       return JSON.parse(jsonMatch ? jsonMatch[0] : raw);
     }
@@ -461,11 +465,11 @@
       btn.disabled = true;
 
       try {
-        const prompt = `Analyze this foreign phrase or word: "${phrase}".
+        const prompt = `Analyze this foreign phrase or word: ${JSON.stringify(phrase)}.
 Return a JSON object with exact keys:
 - "lang": one of "ES" (Spanish), "DE" (German), or "EN" (English)
 - "translation": concise natural translation into Russian
-- "example": MUST be written strictly in the detected foreign language (Spanish if lang=ES, German if lang=DE, English if lang=EN). NEVER use Russian or Cyrillic in this field. Provide one short, realistic sentence using "${phrase}".`;
+- "example": MUST be written strictly in the detected foreign language (Spanish if lang=ES, German if lang=DE, English if lang=EN). NEVER use Russian or Cyrillic in this field. Provide one short, realistic sentence using the phrase.`;
 
         const res = await callAIJSON(prompt);
         if (res.lang) {
@@ -680,7 +684,7 @@ Return a JSON object with exact keys:
       renderVocabList();
     }
 
-    // Batch Import with AI
+    // Batch Import with AI (с разбивкой на пакеты и защитой от кавычек)
     document.getElementById('import-btn').onclick = () => document.getElementById('import-modal').classList.remove('hidden');
     function closeImportModal() { document.getElementById('import-modal').classList.add('hidden'); }
 
@@ -696,39 +700,51 @@ Return a JSON object with exact keys:
         btn.disabled = true;
         prog.classList.remove('hidden');
 
+        const chunkSize = 12;
+        let totalAdded = 0;
+
         try {
-          const prompt = `Process these vocabulary notes for a Russian speaker learning Spanish (ES), German (DE), and English (EN).
-Lines:
-${lines.join('\n')}
+          for (let i = 0; i < lines.length; i += chunkSize) {
+            const chunk = lines.slice(i, i + chunkSize);
+            prog.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1"></i> Обработка ${i + 1}–${Math.min(i + chunkSize, lines.length)} из ${lines.length}...`;
 
-Return a JSON object with a single key "items" containing an array of objects, one for each line, with exact keys:
-- "phrase": the foreign word/expression
+            const prompt = `Process these vocabulary lines (passed as JSON array) for learning Spanish (ES), German (DE), and English (EN).
+Input lines: ${JSON.stringify(chunk)}
+
+Return a JSON object with a single key "items" containing an array of objects, one for each input line, with exact keys:
+- "phrase": the foreign word/expression being learned
 - "lang": "ES", "DE", or "EN"
-- "trans": natural Russian translation (if already provided in the line, refine/keep it; if missing, translate it)
-- "example": MUST be written strictly in the detected foreign language (ES, DE, or EN). NEVER use Russian in this field.`;
+- "trans": keep the existing translation from the line as-is (whether in Russian or German); if missing, translate into Russian
+- "example": MUST be written strictly in the detected foreign language (ES, DE, or EN). NEVER use Russian or Cyrillic in this field.`;
 
-          const data = await callAIJSON(prompt);
-          const results = data.items || [];
-          if (Array.isArray(results) && results.length > 0) {
-            results.reverse().forEach(item => {
-              phrases.unshift({
-                id: Date.now().toString() + Math.random(),
-                lang: ['ES', 'DE', 'EN'].includes(item.lang) ? item.lang : detectLanguageHeuristic(item.phrase),
-                phrase: item.phrase,
-                trans: item.trans || '',
-                example: item.example || '',
-                count: 0
+            const data = await callAIJSON(prompt);
+            const results = data.items || [];
+            if (Array.isArray(results) && results.length > 0) {
+              results.reverse().forEach(item => {
+                phrases.unshift({
+                  id: Date.now().toString() + Math.random(),
+                  lang: ['ES', 'DE', 'EN'].includes(item.lang) ? item.lang : detectLanguageHeuristic(item.phrase),
+                  phrase: item.phrase,
+                  trans: item.trans || '',
+                  example: item.example || '',
+                  count: 0
+                });
+                totalAdded++;
               });
-            });
-            saveToStorage();
-            closeImportModal();
-            document.getElementById('import-text').value = '';
-            renderNewDrillCard();
-            renderVocabList();
-            alert(`AI обработал и добавил ${results.length} карточек с примерами.`);
+              saveToStorage();
+            }
           }
+
+          closeImportModal();
+          document.getElementById('import-text').value = '';
+          renderNewDrillCard();
+          renderVocabList();
+          alert(`Готово! AI обработал и добавил ${totalAdded} карточек с примерами.`);
         } catch (e) {
-          alert(`Ошибка AI: ${e.message}`);
+          saveToStorage();
+          renderNewDrillCard();
+          renderVocabList();
+          alert(`Добавлено ${totalAdded} карточек, затем произошёл сбой: ${e.message}`);
         } finally {
           btn.disabled = false;
           prog.classList.add('hidden');
